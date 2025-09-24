@@ -1,0 +1,10 @@
+List of environment variables
+`OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+OTEL_EXPORTER_OTLP_HEADERS=<otel_auth_header_generated_from_grafana_cloud>
+OTEL_METRICS_EXPORTER=otlp
+OTEL_RESOURCE_ATTRIBUTES=<key-value_pair_of_attributes_separated_by_comma>
+OTEL_TRACES_EXPORTER=otlp
+OTEL_EXPORTER_OTLP_ENDPOINT=<otel_endpoint_generated_from_grafana_cloud>
+OTEL_SERVICE_NAME=<service_name>
+OTEL_METRIC_EXPORT_INTERVAL=15000
+OTEL_LOGS_EXPORTER=otlp`
