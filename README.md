@@ -1,5 +1,7 @@
-# Setup
+# Inspiration
+To have first hand experience with instrumetation using OTel, this repo to quickly setup a running java app inspired from the [Getting Started by Example](https://opentelemetry.io/docs/languages/java/getting-started/) made by OTel.
 
+# Setting Up and instrumenting a Rolling Dice app
 Follow the instructions below:
 1. Fork the project
 2. Launch your VS Code
@@ -8,12 +10,18 @@ Follow the instructions below:
 5. Run the following command:
     1. Build: `gradle assemble`
     2. Run App: `java -jar ./build/libs/opentelemetry-local-test.jar`
-6. To test the app do a port forwarding via port 8080 in your VS Code and then try to access the endpoint locally via [http://localhost:8080/rolldice](http://localhost:8080/rolldice)
+6. To test the app do a port forwarding via port 8080 in your VS Code and then try to access the endpoint locally via [http://localhost:8080/rolldice](http://localhost:8080/rolldice) and after you determined that the app is working, stop the app from running to proceed with the instrumentation.
 7. Create a free tier account in [Grafana Cloud](https://grafana.com/products/cloud/) and then create your own instance.
-8. From your personal grafana instance, click the **Details** button to generate under Open Telemetry the variable tokens necessary for the next step.
-9. Run the below command create the global variables that will be used by Open Telemetry agent. **Note**: Don't forget to put proper values to a few variables below.
+8. From your personal grafana instance, click the **Details** button to generate under Open Telemetry the variable tokens necessary for the step 10.
+9. Download the Open Telemetry Agent by running the below command. **Note** this downloads the jar file outside the directory of the project under directory `/workspaces/dependencies`.
 
-`export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \`
+`mkdir /workspaces/dependencies && cd /workspaces/dependencies && curl -L -O https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar && cd /workspaces/opentelemetry-local-test`
+
+10. Run the below command create the global variables that will be used by Open Telemetry agent during startup. **Note**: Don't forget to put proper values to a few variables below.
+
+`export JAVA_TOOL_OPTIONS="-javaagent:/workspaces/dependencies/opentelemetry-javaagent.jar" \`
+
+`OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \`
 
 `OTEL_EXPORTER_OTLP_HEADERS=<otel_auth_header_generated_from_grafana_cloud> \`
 
