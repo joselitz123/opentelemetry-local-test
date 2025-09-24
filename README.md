@@ -1,5 +1,5 @@
 # Inspiration
-To have first hand experience with instrumetation using OTel, this repo to quickly setup a running java app inspired from the [Getting Started by Example](https://opentelemetry.io/docs/languages/java/getting-started/) made by OTel.
+To have first hand experience with instrumetation using OTel, this repo is created to quickly setup a running java app and instrument it from scratch. This is inspired from the [Getting Started by Example](https://opentelemetry.io/docs/languages/java/getting-started/) that was made by OTel.
 
 # Setting Up and instrumenting a Rolling Dice app
 Follow the instructions below:
