@@ -71,16 +71,4 @@ public class OrderMessageListener {
         logger.info("  ✓ Order {} completed successfully", orderId);
     }
 
-    /**
-     * Alternative listener for raw JMS messages - optional
-     * This shows more advanced message processing capabilities
-     */
-    @JmsListener(destination = "${app.azure.servicebus.entity-name:demo-queue}")
-    public void receiveRawMessage(String rawMessage) {
-        logger.info("📝 Received raw text message: {}", rawMessage);
-        
-        if (rawMessage.toLowerCase().contains("order")) {
-            logger.info("🎯 Detected order in raw message");
-        }
-    }
 }
