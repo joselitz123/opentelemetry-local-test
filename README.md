@@ -12,14 +12,14 @@ This project demonstrates **OpenTelemetry instrumentation** applied to a complet
 When you enable OpenTelemetry, it automatically instruments:
 - **HTTP Endpoints**: `/rolldice` and `/messages/*` REST API calls
 - **JMS Operations**: Message sending, receiving, and processing
-- **Business Logic**: Order processing in the listener
+- **Business Logic**: Order processing in listener
 - **Spring Components**: All internal application components
 - **Database Operations**: (when configured)
 - **Logs**: Application logs with trace context
 
 ## 🚀 Quick Start - OpenTelemetry Instrumented Demo
 
-Follow these steps to set up and run the application with OpenTelemetry instrumentation.
+Follow these steps to set up and run application with OpenTelemetry instrumentation.
 
 ### 1. Fork and Setup
 
@@ -31,7 +31,7 @@ Follow these steps to set up and run the application with OpenTelemetry instrume
 - Search for "Codespaces: Create New Codespace"
 - Select the repo you forked
 
-### 2. Build the Application
+### 2. Build Application
 ```bash
 gradle assemble
 ```
@@ -41,10 +41,10 @@ gradle assemble
 - Create your own instance
 
 ### 4. Get OpenTelemetry Connection Details
-- From your Grafana instance, click the **Details** button
+- From your Grafana instance, click **Details** button
 - Copy the OTLP endpoint and authentication headers
 
-### 5. Download the OpenTelemetry Agent
+### 5. Download OpenTelemetry Agent
 ```bash
 mkdir /workspaces/dependencies && \
 cd /workspaces/dependencies && \
@@ -52,59 +52,55 @@ curl -L -O https://github.com/open-telemetry/opentelemetry-java-instrumentation/
 cd /workspaces/opentelemetry-local-test
 ```
 
-### 6. Configure OpenTelemetry Environment Variables
-Replace the placeholder values with your actual Grafana Cloud details:
+### 6. Configure OpenTelemetry Credentials
+
+The project uses a `start-with-otel.sh` script that automatically handles all OpenTelemetry configuration. You just need to provide your Grafana Cloud credentials:
 
 ```bash
-export JAVA_TOOL_OPTIONS="-javaagent:/workspaces/dependencies/opentelemetry-javaagent.jar"
-export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"
-export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <your-grafana-cloud-token>"
-export OTEL_METRICS_EXPORTER="otlp"
-export OTEL_RESOURCE_ATTRIBUTES="service.name=opentelemetry-demo,deployment.environment=demo"
-export OTEL_TRACES_EXPORTER="otlp"
-export OTEL_EXPORTER_OTLP_ENDPOINT="<your-grafana-cloud-otel-endpoint>"
-export OTEL_SERVICE_NAME="opentelemetry-demo"
-export OTEL_METRIC_EXPORT_INTERVAL=15000
-export OTEL_LOGS_EXPORTER="otlp"
-```
-
-### 7. Run with OpenTelemetry Instrumentation
-
-**Option A: Using the startup script (recommended)**
-
-The project includes a `start-with-otel.sh` script that automates OpenTelemetry configuration:
-
-```bash
-# Step 1: Copy the example .env file
+# Copy example .env file
 cp .env.example .env
 
-# Step 2: Edit .env with your actual Grafana Cloud credentials
-# You need to update these two required fields:
-# - OTEL_EXPORTER_OTLP_ENDPOINT (e.g., https://otlp-gateway-prod-us-east-0.grafana.net/otlp)
-# - OTEL_EXPORTER_OTLP_HEADERS (e.g., Authorization: Bearer glc_eyJvIjoi...)
+# Edit .env and add your actual Grafana Cloud credentials
+# You only need to update these TWO required fields:
 
-# Step 3: Make the script executable (if needed)
+# 1. OTLP Endpoint (from your Grafana Cloud instance)
+# Example: https://otlp-gateway-prod-us-east-0.grafana.net/otlp
+OTEL_EXPORTER_OTLP_ENDPOINT="https://your-grafana-cloud-otlp-endpoint"
+
+# 2. Authentication Token (from your Grafana Cloud instance)
+# Example: Authorization: Bearer glc_eyJvIjoi...
+OTEL_EXPORTER_OTLP_HEADERS="Authorization: Bearer your-grafana-cloud-token"
+```
+
+All other OpenTelemetry settings are pre-configured in `.env.example` and will work with any Grafana Cloud instance.
+
+### 7. Run Application with OpenTelemetry
+
+The `start-with-otel.sh` script handles everything:
+
+```bash
+# Make script executable (if needed)
 chmod +x start-with-otel.sh
 
-# Step 4: Run the script
+# Run script
 ./start-with-otel.sh
 ```
 
-**What the script does:**
+**What script does automatically:**
 1. Stops any existing application instances to avoid port conflicts
 2. Loads all OpenTelemetry environment variables from `.env` file
-3. Ensures the OpenTelemetry Java agent is included in `JAVA_TOOL_OPTIONS`
-4. Starts the application with the agent attached
+3. Ensures OpenTelemetry Java agent is properly configured
+4. Starts application with agent attached
 5. Logs all output to `/tmp/app-otel.log` for debugging
 
-**Running in the background:**
-If you want to run the application in the background (continue using the terminal):
+**Running in background:**
+If you want to run application in background (continue using terminal):
 
 ```bash
 nohup bash start-with-otel.sh > /tmp/startup.log 2>&1 &
 ```
 
-**Verifying the application started:**
+**Verifying application started:**
 ```bash
 # Wait 15 seconds for startup
 sleep 15
@@ -118,11 +114,11 @@ tail -50 /tmp/app-otel.log | grep -i "opentelemetry"
 # Verify OpenTelemetry agent version (should show version 2.23.0 or later)
 grep "opentelemetry-javaagent - version" /tmp/app-otel.log
 
-# Test the application is responding
+# Test application is responding
 curl http://localhost:8080/messages/config
 ```
 
-**What to look for in the logs:**
+**What to look for in logs:**
 ```
 Picked up JAVA_TOOL_OPTIONS: -javaagent:/workspaces/dependencies/opentelemetry-javaagent.jar
 [otel.javaagent ...] INFO ... opentelemetry-javaagent - version: 2.23.0
@@ -130,7 +126,7 @@ Started DiceApplication in X seconds
 ```
 
 **If you see 401 Unauthorized errors:**
-This means your Grafana Cloud token is invalid or expired. Update the token in `.env` and restart:
+This means your Grafana Cloud token is invalid or expired. Update token in `.env` and restart:
 ```bash
 pkill -f "opentelemetry-local-test.jar"
 sleep 2
@@ -140,27 +136,8 @@ sleep 2
 **Important notes:**
 - The `.env` file is in `.gitignore` so your credentials won't be committed
 - The script automatically includes `JAVA_TOOL_OPTIONS` if missing
-- All environment variables are loaded from `.env` before starting the application
+- All environment variables are loaded from `.env` before starting application
 - The script will show your configuration before starting (service name, endpoint, etc.)
-
-**Option B: Manual startup with environment variables**
-
-```bash
-# Set environment variables (replace with your actual values)
-export JAVA_TOOL_OPTIONS="-javaagent:/workspaces/dependencies/opentelemetry-javaagent.jar"
-export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"
-export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <your-grafana-cloud-token>"
-export OTEL_METRICS_EXPORTER="otlp"
-export OTEL_RESOURCE_ATTRIBUTES="service.name=opentelemetry-demo,deployment.environment=demo"
-export OTEL_TRACES_EXPORTER="otlp"
-export OTEL_EXPORTER_OTLP_ENDPOINT="<your-grafana-cloud-otel-endpoint>"
-export OTEL_SERVICE_NAME="opentelemetry-demo"
-export OTEL_METRIC_EXPORT_INTERVAL=15000
-export OTEL_LOGS_EXPORTER="otlp"
-
-# Run the application
-java -jar ./build/libs/opentelemetry-local-test.jar
-```
 
 The application starts with:
 - **OpenTelemetry enabled** (collecting traces, metrics, logs)
@@ -234,7 +211,7 @@ curl -X POST "http://localhost:8080/messages/send?message=YourMessageHere"
 ```
 - Generates OTel traces for message sending
 - JmsListener receives and processes the message
-- Business logic is traced within the listener
+- Business logic is traced within listener
 
 **Send Batch Messages:**
 ```bash
@@ -354,11 +331,11 @@ The application will now use Azure Service Bus with token authentication, and al
 ### Application won't start
 - Check that port 8080 is not already in use
 - Ensure Java 17+ is installed
-- Verify the JAR file exists: `./build/libs/opentelemetry-local-test.jar`
+- Verify JAR file exists: `./build/libs/opentelemetry-local-test.jar`
 
 ### OpenTelemetry not exporting
 - Verify all environment variables are set correctly
-- Check that the OTLP endpoint and credentials from Grafana Cloud are accurate
+- Check that OTLP endpoint and credentials from Grafana Cloud are accurate
 - Review the agent jar path: `/workspaces/dependencies/opentelemetry-javaagent.jar`
 - Check application logs for connection errors
 
@@ -370,13 +347,13 @@ The application will now use Azure Service Bus with token authentication, and al
 
 ### JMS messages not received
 - Check the console logs for JMS listener errors
-- Verify the application is in demo mode (default) unless Azure is configured
-- Ensure the message payload format is correct
+- Verify application is in demo mode (default) unless Azure is configured
+- Ensure message payload format is correct
 
 ### Azure Service Bus connection fails
 - Verify all Azure properties are correctly configured
 - Check that the Azure Service Bus namespace and credentials are valid
-- Ensure the required Azure dependencies are uncommented in build.gradle.kts
+- Ensure required Azure dependencies are uncommented in build.gradle.kts
 - Review Azure logs for authentication failures
 
 ### Codespaces port forwarding issues
