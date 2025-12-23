@@ -7,7 +7,10 @@ sleep 2
 # Load environment variables from .env file if it exists
 if [ -f .env ]; then
     echo "Loading environment variables from .env file..."
-    export $(grep -v '^#' .env | xargs)
+    # Source the .env file to properly handle quoted values
+    set -a
+    source .env
+    set +a
 else
     echo "Warning: .env file not found. Using default/example values."
     echo "Please copy .env.example to .env and add your Grafana Cloud credentials."
