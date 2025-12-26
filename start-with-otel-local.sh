@@ -33,6 +33,15 @@ detect_linux_distro() {
     fi
 }
 
+# Function to detect if running in a devcontainer
+detect_devcontainer() {
+    # Check for common devcontainer indicators
+    if [ -f "/.dockerenv" ] || [ -n "${DEVCONTAINER}" ] || [ -n "${CODESPACES}" ]; then
+        return 0  # true, we're in a container
+    fi
+    return 1  # false, not in a container
+}
+
 # Function to prompt user for confirmation
 prompt_yes_no() {
     local prompt="$1"
@@ -114,6 +123,21 @@ echo -e "${GREEN}=== OpenTelemetry Local Stack Startup ===${NC}"
 if ! command -v docker &> /dev/null; then
     echo -e "${RED}Error: Docker is not installed.${NC}"
 
+    # Check if we're in a devcontainer
+    if detect_devcontainer; then
+        echo -e "${YELLOW}Detected devcontainer environment.${NC}"
+        echo -e "${YELLOW}Docker CLI should be installed via devcontainer features.${NC}"
+        echo -e "${YELLOW}Please update .devcontainer/devcontainer.json to include the Docker feature:${NC}"
+        echo ""
+        echo '  "features": {'
+        echo '    "ghcr.io/devcontainers/features/docker-in-docker:2": {}'
+        echo '  },'
+        echo ""
+        echo -e "${YELLOW}Then rebuild the devcontainer:${NC}"
+        echo -e "${YELLOW}  Ctrl+Shift+P > Dev Containers: Rebuild Container${NC}"
+        exit 1
+    fi
+
     OS=$(detect_os)
 
     if [ "$OS" = "linux" ]; then
@@ -182,14 +206,28 @@ if ! command -v docker &> /dev/null; then
 fi
 echo -e "${GREEN}✓ Docker is installed${NC}"
 
-# 2. Check if Docker is running
+# 2. Check if Docker is accessible
 if ! docker info > /dev/null 2>&1; then
-    echo -e "${RED}Error: Docker is not running. Please start Docker and try again.${NC}"
-    echo -e "${YELLOW}**For Linux:** sudo systemctl start docker"
-    echo -e "${YELLOW}**For macOS/Windows:** Start Docker Desktop from Applications${NC}"
-    exit 1
+    echo -e "${RED}Error: Docker is not accessible.${NC}"
+
+    if detect_devcontainer; then
+        echo -e "${YELLOW}In devcontainer mode, Docker connects to the host daemon.${NC}"
+        echo -e "${YELLOW}Please ensure:${NC}"
+        echo -e "${YELLOW}  1. The host Docker daemon is running${NC}"
+        echo -e "${YELLOW}  2. Docker socket is mounted in .devcontainer/devcontainer.json:${NC}"
+        echo ""
+        echo '  "mounts": ['
+        echo '    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"'
+        echo '  ]'
+        echo ""
+        exit 1
+    else
+        echo -e "${YELLOW}**For Linux:** sudo systemctl start docker${NC}"
+        echo -e "${YELLOW}**For macOS/Windows:** Start Docker Desktop from Applications${NC}"
+        exit 1
+    fi
 fi
-echo -e "${GREEN}✓ Docker is running${NC}"
+echo -e "${GREEN}✓ Docker is accessible${NC}"
 
 # 3. Check for required directories
 DOCKER_DIR="$(dirname "$0")/docker"

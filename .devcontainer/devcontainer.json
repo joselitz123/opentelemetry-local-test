@@ -8,8 +8,13 @@
 			"version": "none",
 			"installGradle": "true",
 			"gradleVersion": "8"
-		}
+		},
+		"ghcr.io/devcontainers/features/docker-in-docker:2": {}
 	},
+
+	"mounts": [
+		"source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+	],
 
 	// Configure tool-specific properties.
 	"customizations": {

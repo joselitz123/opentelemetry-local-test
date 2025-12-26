@@ -127,6 +127,56 @@ curl -X POST "http://localhost:8080/messages/send?message=Processing%20Order%201
 curl -X POST "http://localhost:8080/messages/send-batch?count=5"
 ```
 
+## Development with VS Code Dev Containers
+
+The project includes VS Code Dev Container configuration for a consistent, containerized development environment.
+
+### Dev Container Features
+
+- **Java 21** - Pre-configured Java development environment
+- **Gradle 8** - Build tool pre-installed
+- **Docker CLI + Host Socket Mount** - Docker access via host daemon
+
+### Prerequisites
+
+- Docker Desktop (or Docker daemon) running on the host
+- VS Code with "Dev Containers" extension
+
+### Getting Started in Dev Container
+
+1. **Open in Dev Container:**
+   - Open the project in VS Code
+   - Press `Ctrl+Shift+P` > "Dev Containers: Reopen in Container"
+   - VS Code will build the container and connect
+
+2. **Verify Docker Access:**
+   ```bash
+   docker --version
+   docker info
+   ```
+   The Docker CLI connects to the host's Docker daemon via socket mount.
+
+3. **Run the Application:**
+   ```bash
+   # Build
+   gradle assemble
+
+   # Run with local observability stack
+   ./start-with-otel-local.sh
+   ```
+
+### Important Notes
+
+- The devcontainer mounts the host's Docker socket (`/var/run/docker.sock`)
+- Docker Engine runs on the host, not inside the container
+- The startup script (`start-with-otel-local.sh`) detects devcontainer environment and provides appropriate instructions
+- If Docker is not available, rebuild the devcontainer after ensuring Docker Desktop is running
+
+### Troubleshooting Dev Container
+
+- If Docker commands fail: Ensure Docker Desktop is running on the host, then rebuild the container
+- To rebuild: `Ctrl+Shift+P` > "Dev Containers: Rebuild Container"
+
 ## High-Level Architecture
 
 ### Dual-Mode JMS Configuration
