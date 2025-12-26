@@ -187,6 +187,167 @@ You can observe:
 
 ---
 
+## 🏠 Local Observability Stack (Docker)
+
+For local development and testing, you can run a complete observability stack using Docker Compose instead of sending data to Grafana Cloud.
+
+### Architecture
+
+The local stack consists of:
+- **OpenTelemetry Collector** - Central telemetry pipeline (receives OTLP on port 4318)
+- **Prometheus** - Metrics storage and querying (port 9090)
+- **Grafana Tempo** - Distributed tracing backend (port 3200)
+- **Grafana Loki** - Log aggregation (port 3100)
+- **Grafana** - Unified visualization dashboard (port 3000)
+
+### Prerequisites
+
+1. **Docker** installed (v20.10+)
+2. **Docker Compose** installed (v2.0+)
+3. **Application JAR built** (`gradle assemble`)
+
+### Quick Start
+
+#### 1. Build the Application
+```bash
+gradle assemble
+```
+
+#### 2. Start Local Observability Stack
+
+All configuration files are pre-created in the `docker/` directory. Simply run:
+
+```bash
+# Make script executable (if needed)
+chmod +x start-with-otel-local.sh
+
+# Start everything (Docker stack + application)
+./start-with-otel-local.sh
+```
+
+**This script automatically:**
+1. Checks if Docker is running
+2. Starts the Docker Compose observability stack
+3. Waits for services to be healthy
+4. Loads environment variables from `.env.local`
+5. Starts the application with OpenTelemetry agent attached
+6. Logs output to `/tmp/app-otel-local.log`
+
+**Stop the stack:**
+```bash
+# Stop application only
+pkill -f "opentelemetry-local-test.jar"
+
+# Stop Docker observability stack
+cd docker && docker-compose down
+```
+
+### Access the Observability Stack
+
+Once running, access each service:
+
+- **Grafana Dashboard**: http://localhost:3000 (admin/admin)
+  - Pre-configured datasources for Prometheus, Tempo, Loki
+  - Pre-loaded dashboard for OpenTelemetry metrics
+
+- **Prometheus**: http://localhost:9090
+  - Query metrics directly
+  - Check targets and configuration
+
+- **Tempo**: http://localhost:3200
+  - Search and visualize traces
+
+- **Loki**: http://localhost:3100
+  - Query logs with LogQL
+
+- **OpenTelemetry Collector**: http://localhost:4318
+  - Receives telemetry from application (OTLP endpoint)
+
+### Testing the Local Stack
+
+Generate some traffic to populate the observability stack:
+
+```bash
+# REST API demo - generates traces, metrics, logs
+curl http://localhost:8080/rolldice
+curl http://localhost:8080/rolldice?player=alice
+
+# JMS demo - demonstrates messaging instrumentation
+curl -X POST "http://localhost:8080/messages/send?message=Hello%20Local%20Stack"
+curl -X POST "http://localhost:8080/messages/send-batch?count=10"
+curl -X POST "http://localhost:8080/messages/send?message=Processing%20Order%2067890"
+```
+
+Then explore in Grafana:
+1. Open http://localhost:3000
+2. Navigate to **Dashboards → OpenTelemetry Demo Dashboard**
+3. View traces, metrics, and logs with full correlation
+
+### Switching Between Local and Cloud
+
+The project supports two modes via environment file selection:
+
+**Local Mode (Docker stack):**
+```bash
+./start-with-otel-local.sh  # Uses .env.local
+```
+
+**Cloud Mode (Grafana Cloud):**
+```bash
+./start-with-otel.sh        # Uses .env
+```
+
+Simply run the appropriate startup script. No code changes required!
+
+### Troubleshooting Local Stack
+
+**Docker won't start:**
+- Ensure Docker daemon is running: `docker info`
+- Check port conflicts (4318, 3000, 9090, 3200, 3100)
+
+**Collector not receiving data:**
+- Check collector health: `curl http://localhost:4318`
+- View collector logs: `cd docker && docker-compose logs otel-collector`
+- Verify application is using `.env.local`: Check startup script output
+
+**No traces in Tempo:**
+- Check Tempo is running: `curl http://localhost:3200`
+- Verify collector Tempo exporter is configured
+- Check application logs for OTLP errors: `tail -50 /tmp/app-otel-local.log`
+
+**No metrics in Prometheus:**
+- Check Prometheus targets: http://localhost:9090/targets
+- Verify collector remote write configuration
+- Check collector metrics: `curl http://localhost:8888/metrics`
+
+**Grafana can't connect to datasources:**
+- Check datasource settings in Grafana UI (Configuration → Data Sources)
+- Verify all Docker containers are running: `cd docker && docker-compose ps`
+- Check Docker network: `docker network inspect docker_observability`
+
+**Stack won't stop:**
+```bash
+# Force stop all containers
+cd docker && docker-compose down -v
+
+# Remove volumes (deletes all data)
+docker-compose down -v --volumes
+
+# Remove orphaned containers
+docker system prune -f
+```
+
+### Advantages of Local Stack
+
+- **No Cloud Dependencies**: Works offline, no API limits
+- **Faster Development**: Local data, low latency
+- **Full Control**: Customize any component configuration
+- **Cost-Free**: No Grafana Cloud subscription needed
+- **Privacy**: Data never leaves your machine
+- **Educational**: Learn each component in isolation
+
+---
+
 ## 📊 Understanding the Demos
 
 ### REST API Demo (`/rolldice`)

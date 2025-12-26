@@ -1,0 +1,28 @@
+server:
+  http_listen_address: 0.0.0.0:3200
+
+distributor:
+  receivers:
+    # OTLP receiver
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /tmp/tempo
+    # Wal for crash recovery
+    wal:
+      path: /tmp/tempo/wal
+
+# Allow spans without service name (development mode)
+overrides:
+  metrics_query_disabled: false
+  per_user_override_enabled: false
+  defaults:
+    metrics_prefix: tempo_

@@ -1,0 +1,85 @@
+receivers:
+  # OTLP receiver for traces, metrics, logs from application
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Batch telemetry for efficient export
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+  # Add resource attributes (optional enrichment)
+  resource:
+    attributes:
+      - key: environment
+        value: local
+        action: upsert
+
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+exporters:
+  # Prometheus exporter for metrics
+  prometheusremotewrite:
+    endpoint: http://prometheus:9090/api/v1/write
+    # Send exemplars to link metrics to traces
+    exemplars:
+      enabled: true
+
+  # Tempo exporter for traces
+  otlp/tempo:
+    endpoint: http://tempo:4317
+    tls:
+      insecure: true
+
+  # Loki exporter for logs
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    # Format logs for Loki
+    labels:
+      environment: local
+      service: ${attributes["service.name"]}
+    # Use timestamp from log record
+    send_format: json
+
+  # Debug exporter for troubleshooting (optional, comment out in production)
+  logging:
+    loglevel: info
+
+extensions:
+  # Health check extension
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+  # Memory ballast for performance
+  memory_ballast:
+    size_mib: 256
+
+service:
+  extensions: [health_check, memory_ballast]
+  pipelines:
+    # Traces pipeline: App -> Collector -> Tempo
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [otlp/tempo, logging]
+
+    # Metrics pipeline: App -> Collector -> Prometheus
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [prometheusremotewrite, logging]
+
+    # Logs pipeline: App -> Collector -> Loki
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [loki, logging]

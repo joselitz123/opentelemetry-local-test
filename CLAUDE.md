@@ -26,6 +26,58 @@ java -jar ./build/libs/opentelemetry-local-test.jar
 
 ### Run With OpenTelemetry (Recommended)
 
+The project supports two modes for OpenTelemetry observability:
+
+#### Local Mode (Docker Stack) - Recommended for Development
+
+Complete local observability stack with Docker Compose:
+- **OpenTelemetry Collector** (port 4318) - Central telemetry pipeline
+- **Prometheus** (port 9090) - Metrics storage with exemplar support
+- **Grafana Tempo** (port 3200) - Distributed tracing backend
+- **Grafana Loki** (port 3100) - Log aggregation
+- **Grafana** (port 3000) - Unified visualization (admin/admin)
+
+**Prerequisites:**
+```bash
+# Ensure Docker is running
+docker info
+```
+
+**Start Local Stack:**
+```bash
+# 1. Ensure OpenTelemetry agent is downloaded
+mkdir -p /workspaces/dependencies && \
+cd /workspaces/dependencies && \
+curl -L -O https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar && \
+cd /workspaces/opentelemetry-local-test
+
+# 2. Create local environment file
+cp .env.example .env.local
+# .env.local is pre-configured for localhost, no changes needed
+
+# 3. Start with local observability stack
+./start-with-otel-local.sh
+```
+
+The script handles: starting Docker containers, waiting for health checks, loading `.env.local` variables, attaching the agent, and logging to `/tmp/app-otel-local.log`.
+
+**Access Local Services:**
+- Grafana Dashboard: http://localhost:3000 (admin/admin)
+- Prometheus: http://localhost:9090
+- Tempo: http://localhost:3200
+- Loki: http://localhost:3100
+
+**Stop Local Stack:**
+```bash
+# Stop application
+pkill -f "opentelemetry-local-test.jar"
+
+# Stop Docker containers
+cd docker && docker-compose down
+```
+
+#### Cloud Mode (Grafana Cloud) - For Production Monitoring
+
 1. **Download OpenTelemetry Agent** (once):
 ```bash
 mkdir -p /workspaces/dependencies && \
@@ -51,6 +103,11 @@ The script handles: stopping existing instances, loading `.env` variables, attac
 ```bash
 nohup bash start-with-otel.sh > /tmp/startup.log 2>&1 &
 ```
+
+**Switching Modes:**
+Simply run the appropriate startup script - no code changes required:
+- Local: `./start-with-otel-local.sh` (uses `.env.local`)
+- Cloud: `./start-with-otel.sh` (uses `.env`)
 
 ### Stop the Application
 ```bash
@@ -111,6 +168,50 @@ HTTP Request → MessageProducerController → JmsTemplate → JMS Queue → Ord
 - Standard messages: Basic logging
 - Order messages (contains "order"): Specialized processing (validation, inventory, payment, database)
 
+### Local Observability Stack Architecture
+
+The local observability stack provides a complete development and testing environment:
+
+**Telemetry Flow:**
+```
+Spring Boot App → OTLP Agent → OpenTelemetry Collector → ├─ Prometheus (metrics)
+                                                      ├─ Tempo (traces)
+                                                      └─ Loki (logs)
+                                                              ↓
+                                                         Grafana (visualization)
+```
+
+**Docker Services:**
+- **OpenTelemetry Collector** - Central telemetry pipeline receiving OTLP on port 4318, routing to appropriate backends
+- **Prometheus** - Metrics storage with exemplar support for trace-metric correlation
+- **Grafana Tempo** - Distributed tracing backend with local filesystem storage
+- **Grafana Loki** - Log aggregation with BoltDB storage
+- **Grafana** - Unified visualization with pre-provisioned datasources and dashboard
+
+**Key Configuration Files:**
+- `docker/docker-compose.yml` - Orchestrates all 5 observability services
+- `docker/otel-collector-config.yaml` - Central telemetry pipeline configuration
+- `docker/prometheus.yml` - Metrics storage configuration
+- `docker/tempo-config.yaml` - Traces storage configuration
+- `docker/loki-config.yaml` - Logs storage configuration
+- `docker/grafana/provisioning/datasources/datasources.yml` - Auto-configured datasources
+- `docker/grafana/dashboards/opentelemetry-dashboard.json` - Pre-built dashboard
+- `.env.local` - Local environment configuration (localhost:4318, no authentication)
+- `start-with-otel-local.sh` - Startup script with health checks
+
+**Testing Local Stack:**
+```bash
+# Generate traffic
+curl http://localhost:8080/rolldice
+curl http://localhost:8080/rolldice?player=test
+curl -X POST "http://localhost:8080/messages/send?message=Local%20Stack%20Test"
+
+# View in Grafana Dashboard
+# http://localhost:3000 (admin/admin)
+# Dashboards → OpenTelemetry Demo Dashboard
+# Should see traces, metrics, and logs with full correlation
+```
+
 ### OpenTelemetry Integration
 
 The project uses **OpenTelemetry Java Agent v2.23.0** for **zero-code auto-instrumentation**:
@@ -160,7 +261,10 @@ The project uses **OpenTelemetry Java Agent v2.23.0** for **zero-code auto-instr
 | `OrderMessageListener.java` | JMS consumer with business logic | `@JmsListener`, detects order messages for special processing |
 | `RollController.java` | REST API demo controller | `/rolldice` endpoint |
 | `application.properties` | Application configuration | Sets mode, destination names |
-| `start-with-otel.sh` | OpenTelemetry startup script | Handles `.env` loading and agent attachment |
+| `start-with-otel.sh` | Cloud mode startup script | Handles `.env` loading and agent attachment |
+| `start-with-otel-local.sh` | Local mode startup script | Starts Docker stack, loads `.env.local` |
+| `docker/docker-compose.yml` | Local observability orchestration | 5 services: Collector, Prometheus, Tempo, Loki, Grafana |
+| `docker/otel-collector-config.yaml` | Telemetry pipeline configuration | Routes traces/metrics/logs to appropriate backends |
 | `build.gradle.kts` | Gradle build configuration | Azure dependencies commented out for demo mode |
 
 ## JMS Metrics
