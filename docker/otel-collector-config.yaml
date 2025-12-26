@@ -37,12 +37,11 @@ exporters:
     tls:
       insecure: true
 
-  # Loki exporter for logs
-  loki:
-    endpoint: http://loki:3100/loki/api/v1/push
-    default_labels_enabled:
-      exporter: false
-      job: false
+  # OTLP HTTP exporter for logs to Loki (Loki 3.x supports OTLP natively)
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp/v1/logs
+    tls:
+      insecure: true
 
   # Debug exporter for troubleshooting
   debug:
@@ -72,8 +71,8 @@ service:
       processors: [memory_limiter, batch, resource]
       exporters: [prometheusremotewrite, debug]
 
-    # Logs pipeline: App -> Collector -> Loki
+    # Logs pipeline: App -> Collector -> Loki (via OTLP)
     logs:
       receivers: [otlp]
       processors: [memory_limiter, batch, resource]
-      exporters: [loki, debug]
+      exporters: [otlphttp/loki, debug]

@@ -1,7 +1,7 @@
 services:
   # OpenTelemetry Collector - Central Telemetry Pipeline
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.111.0
+    image: otel/opentelemetry-collector-contrib:0.142.0
     container_name: otel-collector
     command: [--config=/etc/otelcol-contrib/config.yaml]
     volumes:
@@ -27,7 +27,7 @@ services:
 
   # Prometheus - Metrics Storage and Scraping
   prometheus:
-    image: prom/prometheus:v2.50.0
+    image: prom/prometheus:v2.55.1
     container_name: prometheus
     command:
       - --config.file=/etc/prometheus/prometheus.yml
@@ -46,7 +46,7 @@ services:
 
   # Grafana Tempo - Distributed Tracing Backend
   tempo:
-    image: grafana/tempo:2.5.0
+    image: grafana/tempo:2.9.0
     container_name: tempo
     command: [-config.file=/etc/tempo/config.yaml]
     volumes:
@@ -60,7 +60,7 @@ services:
 
   # Grafana Loki - Log Aggregation
   loki:
-    image: grafana/loki:2.9.10
+    image: grafana/loki:3.6.3
     container_name: loki
     command: [-config.file=/etc/loki/local-config.yaml]
     volumes:
@@ -74,7 +74,7 @@ services:
 
   # Grafana - Unified Visualization
   grafana:
-    image: grafana/grafana:10.3.1
+    image: grafana/grafana:12.3.1
     container_name: grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin

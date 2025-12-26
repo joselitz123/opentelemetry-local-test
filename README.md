@@ -263,6 +263,22 @@ Once running, access each service:
 - **OpenTelemetry Collector**: http://localhost:4318
   - Receives telemetry from application (OTLP endpoint)
 
+### Component Versions
+
+The local observability stack uses these container images:
+- **OpenTelemetry Collector**: 0.142.0
+- **Prometheus**: 2.55.1
+- **Grafana Tempo**: 2.9.0
+- **Grafana Loki**: 3.6.3
+- **Grafana**: 12.3.1
+
+**Note:** These are the latest stable versions as of December 2025. To check for updates:
+- OpenTelemetry: https://github.com/open-telemetry/opentelemetry-collector-contrib/releases
+- Prometheus: https://github.com/prometheus/prometheus/releases
+- Tempo: https://github.com/grafana/tempo/releases
+- Loki: https://github.com/grafana/loki/releases
+- Grafana: https://github.com/grafana/grafana/releases
+
 ### Testing the Local Stack
 
 Generate some traffic to populate the observability stack:
