@@ -30,9 +30,6 @@ exporters:
   # Prometheus exporter for metrics
   prometheusremotewrite:
     endpoint: http://prometheus:9090/api/v1/write
-    # Send exemplars to link metrics to traces
-    exemplars:
-      enabled: true
 
   # Tempo exporter for traces
   otlp/tempo:
@@ -43,43 +40,40 @@ exporters:
   # Loki exporter for logs
   loki:
     endpoint: http://loki:3100/loki/api/v1/push
-    # Format logs for Loki
-    labels:
-      environment: local
-      service: ${attributes["service.name"]}
-    # Use timestamp from log record
-    send_format: json
+    default_labels_enabled:
+      exporter: false
+      job: false
 
-  # Debug exporter for troubleshooting (optional, comment out in production)
-  logging:
-    loglevel: info
+  # Debug exporter for troubleshooting
+  debug:
+    verbosity: normal
 
 extensions:
   # Health check extension
   health_check:
     endpoint: 0.0.0.0:13133
 
-  # Memory ballast for performance
-  memory_ballast:
-    size_mib: 256
+  # Pprof for profiling
+  pprof:
+    endpoint: 0.0.0.0:1777
 
 service:
-  extensions: [health_check, memory_ballast]
+  extensions: [health_check, pprof]
   pipelines:
     # Traces pipeline: App -> Collector -> Tempo
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch, resource]
-      exporters: [otlp/tempo, logging]
+      exporters: [otlp/tempo, debug]
 
     # Metrics pipeline: App -> Collector -> Prometheus
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch, resource]
-      exporters: [prometheusremotewrite, logging]
+      exporters: [prometheusremotewrite, debug]
 
     # Logs pipeline: App -> Collector -> Loki
     logs:
       receivers: [otlp]
       processors: [memory_limiter, batch, resource]
-      exporters: [loki, logging]
+      exporters: [loki, debug]

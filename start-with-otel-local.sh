@@ -206,6 +206,18 @@ if ! command -v docker &> /dev/null; then
 fi
 echo -e "${GREEN}✓ Docker is installed${NC}"
 
+# 1.5. Handle Docker API version mismatch (common in devcontainer environments)
+# Check if docker info fails due to API version mismatch
+if ! docker info > /dev/null 2>&1; then
+    if docker info 2>&1 | grep -q "client version.*is too new"; then
+        echo -e "${YELLOW}Detected Docker API version mismatch, auto-fixing...${NC}"
+        # Try to detect the maximum API version supported by the server
+        SERVER_API_VERSION=$(docker info 2>&1 | grep -oP 'Maximum supported API version is \K[0-9.]+' || echo "1.43")
+        echo -e "${YELLOW}Setting DOCKER_API_VERSION=$SERVER_API_VERSION${NC}"
+        export DOCKER_API_VERSION="$SERVER_API_VERSION"
+    fi
+fi
+
 # 2. Check if Docker is accessible
 if ! docker info > /dev/null 2>&1; then
     echo -e "${RED}Error: Docker is not accessible.${NC}"

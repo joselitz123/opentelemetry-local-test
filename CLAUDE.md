@@ -350,3 +350,47 @@ pkill -f "opentelemetry-local-test.jar"
 - Check logs for listener errors
 - Verify `app.mode=demo` unless Azure is configured
 - Ensure only one listener method exists for the destination
+
+### Local Observability Stack Issues
+
+#### Docker Socket Permission Denied
+**Symptom:** `permission denied while trying to connect to the docker API`
+
+**Solution:**
+```bash
+# Fix socket group ownership
+sudo chgrp docker /var/run/docker.sock
+
+# Verify
+docker info
+```
+
+**Root Cause:** Socket owned by wrong group (e.g., `root:800` instead of `root:docker`)
+
+#### Docker API Version Mismatch
+**Symptom:** `client version 1.52 is too new. Maximum supported API version is 1.43`
+
+**Solution:** The `start-with-otel-local.sh` script now automatically detects and fixes this by setting `DOCKER_API_VERSION`.
+
+**Manual fix:**
+```bash
+export DOCKER_API_VERSION=1.43
+```
+
+#### Collector Shows "Unhealthy" Status
+**Symptom:** `docker compose ps` shows otel-collector as unhealthy
+
+**Note:** This is often a display issue due to Docker API version mismatch. Verify health directly:
+```bash
+curl http://localhost:13133/-/healthy
+```
+
+#### Otel-Collector Logs Show "Unauthorized" for Loki
+**Symptom:** `HTTP 401 "Unauthorized": no org id`
+
+**Solution:** Ensure `loki-config.yaml` has `auth_enabled: false` set (for local development)
+
+#### Tempo Container Keeps Restarting
+**Symptom:** Tempo exits with `mkdir /tmp/tempo/wal: permission denied`
+
+**Solution:** Remove the `wal` section from `tempo-config.yaml` (not needed for local development)
