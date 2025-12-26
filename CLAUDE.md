@@ -264,7 +264,7 @@ curl -X POST "http://localhost:8080/messages/send?message=Local%20Stack%20Test"
 
 ### OpenTelemetry Integration
 
-The project uses **OpenTelemetry Java Agent v2.23.0** for **zero-code auto-instrumentation**:
+The project uses **OpenTelemetry Java Agent v2.22.0** for **zero-code auto-instrumentation**:
 
 - Agent attached via `-javaagent` JVM flag (set in `.env` as `JAVA_TOOL_OPTIONS`)
 - Automatic context propagation across HTTP and JMS boundaries
@@ -319,14 +319,106 @@ The project uses **OpenTelemetry Java Agent v2.23.0** for **zero-code auto-instr
 
 ## JMS Metrics
 
-The OpenTelemetry agent automatically captures these metrics (actual metric names):
+**IMPORTANT:** OpenTelemetry Java Agent does **NOT** auto-instrument ActiveMQ Artemis JMS for metrics.
+It only auto-instruments Azure Service Bus. Therefore, this project uses **manual Micrometer instrumentation**.
 
-- **Processing Duration**: `jms.message.process.seconds` (histogram)
-  - `_count`, `_sum`, `_bucket`, `_max` aggregations
+### Root Cause
 
-- **Publish Duration**: `jms.message.publish.seconds` (histogram)
+| JMS Provider | OTEL Agent Metrics? | Solution |
+|--------------|---------------------|----------|
+| Azure Service Bus | ✅ Yes (automatic) | Use OTEL agent |
+| ActiveMQ Artemis | ❌ No (only traces) | Manual Micrometer |
 
-Note: Spring Boot produces `jms.message.process.*` names (dot notation), not `jms_message_process_*` (underscore notation). See `JMS_METRICS_ACTUAL_NAMES.md` for details.
+**Explanation:** The OTEL Java Agent (even v2.22.0) only instruments certain JMS providers (like Azure Service Bus) for metrics. For ActiveMQ Artemis, it only captures traces. To get the required `jms_message_process_*` metrics, we use manual Micrometer instrumentation.
+
+### Manual Micrometer Implementation
+
+**File:** `OrderMessageListener.java:30-146`
+
+**Key components:**
+- `Timer.builder("jms.message.process.seconds")` - Captures duration histogram
+- `Counter.builder("jms.message.processed.total")` - Captures message count
+- `messaging_operation="process"` label - Matches OTEL semantic conventions
+- `Timer.Sample` - Times message processing from receipt to completion
+
+**Implementation approach:**
+```java
+// Start timing when message is received
+Timer.Sample sample = Timer.start(meterRegistry);
+
+try {
+    // Process message
+    processBusinessLogic(payload);
+    // Increment counter for successful processing
+    messageProcessedCounter.increment();
+} finally {
+    // Stop timing and record duration
+    sample.stop(processingTimer);
+}
+```
+
+### Available Metrics
+
+| Metric Name | Type | Labels | Description |
+|-------------|------|--------|-------------|
+| `jms_message_process_seconds_count` | Histogram | `messaging_operation="process"` | Count of processed messages |
+| `jms_message_process_seconds_sum` | Histogram | `messaging_operation="process"` | Sum of processing durations |
+| `jms_message_process_seconds_max` | Gauge | `messaging_operation="process"` | Max processing duration |
+| `jms_message_process_seconds_bucket` | Histogram | `le`, `messaging_operation="process"` | Duration histogram buckets |
+| `jms_message_processed_total` | Counter | `messaging_operation="process"` | Total messages processed |
+| `jms_message_process_seconds` | Summary | `quantile`, `messaging_operation="process"` | Percentiles (0.5, 0.95, 0.99) |
+
+### Dependencies
+
+The following dependencies are included in `build.gradle.kts`:
+- `spring-boot-starter-actuator` - Exposes `/actuator/prometheus` endpoint
+- `micrometer-registry-prometheus` - Formats metrics for Prometheus scraping
+- `micrometer-core` - Core metrics instrumentation library
+
+### Telemetry Flow
+
+```
+OrderMessageListener
+    ↓ (manual Timer.Sample and Counter)
+Micrometer Registry
+    ↓ (records metrics)
+Spring Boot Actuator
+    ↓ (exposes /actuator/prometheus)
+Prometheus (scrapes every 15s)
+    ↓ (stores metrics)
+Grafana (visualizes)
+```
+
+### Accessing Metrics
+
+**Directly from Actuator (for testing):**
+```bash
+curl http://localhost:8080/actuator/prometheus | grep jms_message_process
+```
+
+**From Prometheus:**
+```bash
+curl -s 'http://localhost:9090/api/v1/query?query=jms_message_process_seconds_count' | jq
+```
+
+**From Grafana:**
+```promql
+# Processing duration histogram
+jms_message_process_seconds_bucket
+
+# Messages processed count
+jms_message_processed_total
+
+# Rate of message processing
+rate(jms_message_process_seconds_sum[5m])
+```
+
+### Why This Approach?
+
+1. **JMS Provider Compatibility**: Works with any JMS provider (ActiveMQ, Azure Service Bus, etc.)
+2. **Exact Metric Naming**: Produces `jms_message_process_*` metrics matching OTEL semantic conventions
+3. **Production-Ready**: Manual instrumentation is reliable and predictable
+4. **Spring Integration**: Seamlessly integrates with Spring Boot's Micrometer registry
 
 ## Troubleshooting
 
