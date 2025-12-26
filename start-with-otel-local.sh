@@ -11,26 +11,173 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Function to detect OS
+detect_os() {
+    case "$(uname -s)" in
+        Linux*)  echo "linux" ;;
+        Darwin*) echo "macos" ;;
+        MINGW*|MSYS*|CYGWIN*) echo "windows" ;;
+        *)      echo "unknown" ;;
+    esac
+}
+
+# Function to detect Linux distribution
+detect_linux_distro() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        echo "$ID"
+    elif [ -f /etc/redhat-release ]; then
+        echo "rhel"
+    else
+        echo "unknown"
+    fi
+}
+
+# Function to prompt user for confirmation
+prompt_yes_no() {
+    local prompt="$1"
+    local response
+
+    while true; do
+        read -p "$(echo -e ${YELLOW}$prompt [y/N]: ${NC})" response
+        case "$response" in
+            [Yy]|[Yy][Ee][Ss])
+                return 0
+                ;;
+            [Nn]|[Nn][Oo]|"")
+                return 1
+                ;;
+            *)
+                echo -e "${RED}Please answer yes or no.${NC}"
+                ;;
+        esac
+    done
+}
+
+# Function to install Docker on Ubuntu/Debian
+install_docker_ubuntu() {
+    echo -e "${YELLOW}Installing Docker for Ubuntu/Debian...${NC}"
+
+    # Update package index
+    echo -e "${YELLOW}Updating package index...${NC}"
+    sudo apt-get update -y || { echo -e "${RED}✗ Failed to update package index${NC}"; return 1; }
+
+    # Install prerequisites
+    echo -e "${YELLOW}Installing prerequisites...${NC}"
+    sudo apt-get install -y ca-certificates curl gnupg || { echo -e "${RED}✗ Failed to install prerequisites${NC}"; return 1; }
+
+    # Add Docker's official GPG key
+    echo -e "${YELLOW}Adding Docker GPG key...${NC}"
+    sudo install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+    # Set up Docker repository
+    echo -e "${YELLOW}Adding Docker repository...${NC}"
+    echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+      $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+      sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+    # Install Docker
+    echo -e "${YELLOW}Installing Docker Engine...${NC}"
+    sudo apt-get update -y || { echo -e "${RED}✗ Failed to update package index${NC}"; return 1; }
+    sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin || { echo -e "${RED}✗ Failed to install Docker${NC}"; return 1; }
+
+    # Start Docker service
+    echo -e "${YELLOW}Starting Docker service...${NC}"
+    sudo systemctl start docker || { echo -e "${RED}✗ Failed to start Docker${NC}"; return 1; }
+    sudo systemctl enable docker
+
+    echo -e "${GREEN}✓ Docker installed successfully${NC}"
+    return 0
+}
+
+# Function to install Docker on Fedora/RHEL
+install_docker_fedora() {
+    echo -e "${YELLOW}Installing Docker for Fedora/RHEL...${NC}"
+
+    sudo dnf -y install dnf-plugins-core || { echo -e "${RED}✗ Failed to install dnf-plugins-core${NC}"; return 1; }
+    sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+    sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin || { echo -e "${RED}✗ Failed to install Docker${NC}"; return 1; }
+    sudo systemctl start docker || { echo -e "${RED}✗ Failed to start Docker${NC}"; return 1; }
+    sudo systemctl enable docker
+
+    echo -e "${GREEN}✓ Docker installed successfully${NC}"
+    return 0
+}
+
 echo -e "${GREEN}=== OpenTelemetry Local Stack Startup ===${NC}"
 
 # 1. Check if Docker is installed
 if ! command -v docker &> /dev/null; then
     echo -e "${RED}Error: Docker is not installed.${NC}"
-    echo -e "${YELLOW}Please install Docker first:${NC}"
-    echo ""
-    echo "  **For Ubuntu/Debian:**"
-    echo "  curl -fsSL https://get.docker.com -o get-docker.sh"
-    echo "  sudo sh get-docker.sh"
-    echo "  sudo usermod -aG docker \$USER"
-    echo "  newgrp docker"
-    echo ""
-    echo "  **For macOS:**"
-    echo "  Download and install Docker Desktop from: https://www.docker.com/products/docker-desktop/"
-    echo ""
-    echo "  **For Windows:**"
-    echo "  Download and install Docker Desktop from: https://www.docker.com/products/docker-desktop/"
-    echo ""
-    exit 1
+
+    OS=$(detect_os)
+
+    if [ "$OS" = "linux" ]; then
+        echo -e "${YELLOW}Detected Linux system. Docker can be installed automatically.${NC}"
+
+        if prompt_yes_no "Would you like to install Docker now?"; then
+            echo -e "${YELLOW}Proceeding with Docker installation...${NC}"
+            echo -e "${YELLOW}You will need to enter your sudo password.${NC}"
+
+            DISTRO=$(detect_linux_distro)
+
+            case "$DISTRO" in
+                ubuntu|debian)
+                    if install_docker_ubuntu; then
+                        echo -e "${GREEN}✓ Docker installation completed${NC}"
+                        echo -e "${YELLOW}Note: You may need to log out and back in for user permissions to take effect.${NC}"
+                    else
+                        echo -e "${RED}✗ Docker installation failed${NC}"
+                        echo -e "${YELLOW}Please install Docker manually and try again.${NC}"
+                        echo -e "${YELLOW}Visit: https://docs.docker.com/engine/install/${NC}"
+                        exit 1
+                    fi
+                    ;;
+                fedora|rhel|centos)
+                    if install_docker_fedora; then
+                        echo -e "${GREEN}✓ Docker installation completed${NC}"
+                    else
+                        echo -e "${RED}✗ Docker installation failed${NC}"
+                        echo -e "${YELLOW}Please install Docker manually and try again.${NC}"
+                        echo -e "${YELLOW}Visit: https://docs.docker.com/engine/install/${NC}"
+                        exit 1
+                    fi
+                    ;;
+                *)
+                    echo -e "${RED}Error: Unsupported Linux distribution: $DISTRO${NC}"
+                    echo -e "${YELLOW}Automatic installation is supported for Ubuntu, Debian, Fedora, and RHEL/CentOS.${NC}"
+                    echo -e "${YELLOW}Please install Docker manually: https://docs.docker.com/engine/install/${NC}"
+                    exit 1
+                    ;;
+            esac
+
+            # Verify installation
+            if ! command -v docker &> /dev/null; then
+                echo -e "${RED}Error: Docker installation verification failed${NC}"
+                echo -e "${YELLOW}Please log out and log back in, then run this script again.${NC}"
+                exit 1
+            fi
+        else
+            echo -e "${YELLOW}Docker installation cancelled.${NC}"
+            echo -e "${YELLOW}Please install Docker manually and try again.${NC}"
+            echo -e "${YELLOW}Visit: https://docs.docker.com/engine/install/${NC}"
+            exit 1
+        fi
+    else
+        echo -e "${YELLOW}Automatic installation is only supported on Linux.${NC}"
+        echo -e "${YELLOW}Please install Docker Desktop for your platform:${NC}"
+        echo ""
+        echo "  **For macOS:**"
+        echo "  Download and install Docker Desktop from: https://www.docker.com/products/docker-desktop/"
+        echo ""
+        echo "  **For Windows:**"
+        echo "  Download and install Docker Desktop from: https://www.docker.com/products/docker-desktop/"
+        echo ""
+        exit 1
+    fi
 fi
 echo -e "${GREEN}✓ Docker is installed${NC}"
 
@@ -38,7 +185,7 @@ echo -e "${GREEN}✓ Docker is installed${NC}"
 if ! docker info > /dev/null 2>&1; then
     echo -e "${RED}Error: Docker is not running. Please start Docker and try again.${NC}"
     echo -e "${YELLOW}**For Linux:** sudo systemctl start docker"
-    echo -e "**For macOS/Windows:** Start Docker Desktop from Applications${NC}"
+    echo -e "${YELLOW}**For macOS/Windows:** Start Docker Desktop from Applications${NC}"
     exit 1
 fi
 echo -e "${GREEN}✓ Docker is running${NC}"
