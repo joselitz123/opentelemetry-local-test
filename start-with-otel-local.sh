@@ -56,7 +56,8 @@ prompt_yes_no() {
 
 # Function to install Docker on Ubuntu/Debian
 install_docker_ubuntu() {
-    echo -e "${YELLOW}Installing Docker for Ubuntu/Debian...${NC}"
+    local distro_id="$1"
+    echo -e "${YELLOW}Installing Docker for $distro_id...${NC}"
 
     # Update package index
     echo -e "${YELLOW}Updating package index...${NC}"
@@ -66,16 +67,16 @@ install_docker_ubuntu() {
     echo -e "${YELLOW}Installing prerequisites...${NC}"
     sudo apt-get install -y ca-certificates curl gnupg || { echo -e "${RED}✗ Failed to install prerequisites${NC}"; return 1; }
 
-    # Add Docker's official GPG key
+    # Add Docker's official GPG key (use distro-specific URL)
     echo -e "${YELLOW}Adding Docker GPG key...${NC}"
     sudo install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    curl -fsSL "https://download.docker.com/linux/$distro_id/gpg" | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     sudo chmod a+r /etc/apt/keyrings/docker.gpg
 
-    # Set up Docker repository
+    # Set up Docker repository (use distro-specific URL)
     echo -e "${YELLOW}Adding Docker repository...${NC}"
     echo \
-      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$distro_id \
       $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
       sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
@@ -126,7 +127,7 @@ if ! command -v docker &> /dev/null; then
 
             case "$DISTRO" in
                 ubuntu|debian)
-                    if install_docker_ubuntu; then
+                    if install_docker_ubuntu "$DISTRO"; then
                         echo -e "${GREEN}✓ Docker installation completed${NC}"
                         echo -e "${YELLOW}Note: You may need to log out and back in for user permissions to take effect.${NC}"
                     else
