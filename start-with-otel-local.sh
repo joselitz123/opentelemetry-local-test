@@ -39,7 +39,16 @@ echo -e "${GREEN}✓ docker-compose.yml found${NC}"
 # 4. Start Docker Compose observability stack
 echo -e "\n${YELLOW}Starting Docker Compose observability stack...${NC}"
 cd "$DOCKER_DIR"
-docker-compose up -d
+# Try docker compose (V2) first, fallback to docker-compose (V1)
+if docker compose version &>/dev/null; then
+    docker compose up -d
+elif docker-compose --version &>/dev/null; then
+    docker-compose up -d
+else
+    echo -e "${RED}Error: Neither 'docker compose' nor 'docker-compose' command found.${NC}"
+    echo -e "${YELLOW}Please install Docker Compose and try again.${NC}"
+    exit 1
+fi
 
 # Wait for services to be healthy
 echo -e "${YELLOW}Waiting for services to be ready...${NC}"
@@ -48,7 +57,7 @@ sleep 10
 # Check if collector is accepting connections
 if ! curl -s http://localhost:4318 > /dev/null 2>&1; then
     echo -e "${RED}Error: OpenTelemetry Collector is not responding on http://localhost:4318${NC}"
-    echo -e "${YELLOW}Check 'docker-compose logs otel-collector' for errors${NC}"
+    echo -e "${YELLOW}Check 'docker compose logs otel-collector' for errors${NC}"
     exit 1
 fi
 echo -e "${GREEN}✓ OpenTelemetry Collector is ready${NC}"
